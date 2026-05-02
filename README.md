@@ -13,9 +13,15 @@ PBR Analytics - це проект, побудований на основі пу
 Тури:
 
 unleash_the_beast - головний тур (найпрестижніший)
+
 challenger_series
+
 pendleton_whisky_velocity_tour
+
 touring_pro_division
+
 pbr_australia
+
 pbr_brazil
+
 pbr_canada
