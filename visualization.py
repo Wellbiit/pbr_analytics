@@ -167,3 +167,150 @@ ax2.legend()
 plt.tight_layout()
 plt.savefig('visuals/tour_trendsz .png', dpi=150, bbox_inches='tight')
 plt.show()
+
+
+#Трамплін до UTB
+with engine.connect() as conn:
+    df_springboard = pd.read_sql(text("""
+    WITH first_year_in_PBR AS(
+        SELECT rider, MIN(year) as first_year_in_PBR
+        FROM riders
+        GROUP BY rider
+    ),
+    first_year_in_UTB AS(
+        SELECT rider, MIN(year) as first_year_in_UTB
+        FROM riders
+        WHERE tour = 'unleash_the_best'
+        GROUP BY rider
+    )
+    SELECT
+        years_to_UTB
+        , COUNT(rider) as rider_count
+    FROM (
+        SELECT
+            first_year_in_UTB.rider
+            , first_year_in_UTB.first_year_in_UTB - first_year_in_PBR.first_year_in_PBR as years_to_UTB
+        FROM first_year_in_UTB
+        LEFT JOIN first_year_in_PBR ON first_year_in_UTB.rider = first_year_in_PBR.rider
+        WHERE first_year_in_UTB.first_year_in_UTB - first_year_in_PBR.first_year_in_PBR > 0
+    ) as subquery
+    GROUP BY years_to_UTB
+    ORDER BY years_to_UTB ASC
+    """), conn)
+
+print(df_springboard)
+
+colors = ['#990000']
+plt.style.use('dark_background')
+plt.figure(figsize=(10, 6))
+plt.bar(df_springboard['years_to_utb'], df_springboard['rider_count'], color=colors)
+plt.title('Springboard to UTB')
+plt.xlabel('Years to UTB')
+plt.ylabel('Rider count')
+plt.tight_layout()
+plt.savefig('visuals/years_to_utb.png', dpi=150, bbox_inches='tight')
+plt.show()
+
+
+#Трамплін до UTB (з якого турніру приходять)
+with engine.connect() as conn:
+    df_tour_springboard = pd.read_sql(text("""
+    WITH first_year_UTB AS(
+    SELECT 
+        rider
+        , MIN(year) as min_year_in_UTB
+    FROM riders
+    WHERE tour = 'unleash_the_best'
+    GROUP BY rider
+),
+tour_rider_come_from AS (
+    SELECT
+        riders.rider
+        , riders.tour
+    FROM riders
+    JOIN first_year_UTB ON first_year_UTB.rider = riders.rider
+    WHERE tour != 'unleash_the_best' AND year < min_year_in_UTB
+    GROUP BY riders.rider, riders.tour
+)
+SELECT 
+    tour
+    , COUNT(DISTINCT rider) AS riders_count
+FROM tour_rider_come_from
+GROUP BY tour
+ORDER BY riders_count DESC
+    """), conn)
+
+print(df_tour_springboard)
+
+plt.style.use('dark_background')
+plt.figure(figsize=(10, 6))
+tour_labels = {
+    'challenger_series': 'Challenger Series',
+    'touring_pro_division': 'Touring Pro Division',
+    'pendleton_whisky_velocity_tour': 'Pendleton Velocity Tour',
+    'pbr_brazil': 'PBR Brazil',
+    'pbr_canada': 'PBR Canada',
+    'pbr_australia': 'PBR Australia'
+}
+df_tour_springboard['tour'] = df_tour_springboard['tour'].map(tour_labels)
+colors = ['#D4A017' if t == 'Challenger Series' else '#990000' for t in df_tour_springboard['tour']]
+plt.barh(df_tour_springboard['tour'], df_tour_springboard['riders_count'], color=colors)
+plt.title('Where UTB Riders Come From')
+plt.xlabel('Number of Riders')
+plt.ylabel('Tour')
+plt.tight_layout()
+plt.savefig('visuals/tour_springboard.png', dpi=150, bbox_inches='tight')
+plt.show()
+
+
+
+#Стабільність райдера по ride%
+with engine.connect() as conn:
+    df_stability = pd.read_sql(text("""
+WITH yearly_stat AS (
+    SELECT 
+        rider
+        , year
+        , AVG("ride_%") as avg_ride_year
+        , AVG(avg_score) as avg_score_year
+        , SUM(rides) as total_rides_year
+        , SUM(outs) as total_outs_year
+    FROM riders
+    GROUP BY rider, year
+)
+SELECT
+    rider
+    , ROUND(STDDEV(avg_ride_year)::numeric, 2) as st_dev_ride
+    , ROUND(AVG(avg_ride_year)::numeric, 2) as avg_ride
+    , ROUND(STDDEV(avg_score_year)::numeric, 2) as st_dev_score
+    , ROUND(AVG(avg_score_year)::numeric, 2) as avg_score
+    , ROUND((STDDEV(avg_ride_year) / NULLIF(AVG(avg_ride_year), 0) * 100)::numeric, 2) as cv_ride
+    , ROUND((100 - (STDDEV(avg_ride_year) / NULLIF(AVG(avg_ride_year), 0) * 100))::numeric, 2) as stability_score
+    , COUNT(DISTINCT year) as year_count
+    , SUM(total_rides_year) as total_rides
+    , SUM(total_outs_year) as total_outs
+FROM yearly_stat
+GROUP BY rider
+HAVING COUNT(year) >= 4
+    AND AVG(avg_ride_year) >= 20
+    AND SUM(total_rides_year) >= 50
+ORDER BY cv_ride ASC
+    """), conn)
+
+print(df_stability)
+
+colors = ['#990000']
+plt.style.use('dark_background')
+plt.figure(figsize=(10, 6))
+plt.scatter(df_stability['avg_ride'], df_stability['stability_score'], color=colors)
+top5 = df_stability.nlargest(5, 'stability_score')
+for _, row in top5.iterrows():
+    plt.annotate(row['rider'], (row['avg_ride'], row['stability_score']),
+                textcoords="offset points", xytext=(5, 5),
+                fontsize=8, color='#D4A017')
+plt.title('Rider stability')
+plt.xlabel('Average ride %')
+plt.ylabel('Stability score')
+plt.tight_layout()
+plt.savefig('visuals/stability.png', dpi=150, bbox_inches='tight')
+plt.show()
