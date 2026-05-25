@@ -165,7 +165,7 @@ ax2.set_ylabel('AVG score')
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig('visuals/tour_trendsz .png', dpi=150, bbox_inches='tight')
+plt.savefig('visuals/tour_trends .png', dpi=150, bbox_inches='tight')
 plt.show()
 
 
@@ -198,6 +198,7 @@ with engine.connect() as conn:
     ORDER BY years_to_UTB ASC
     """), conn)
 
+df_springboard.to_csv('data/years_to_utb.csv', index=False, sep=';')
 print(df_springboard)
 
 colors = ['#990000']
@@ -218,32 +219,38 @@ with engine.connect() as conn:
     WITH first_year_UTB AS(
     SELECT 
         rider
-        , MIN(year) as min_year_in_UTB
+        , MIN(year) as first_utb_year
     FROM riders
     WHERE tour = 'unleash_the_best'
     GROUP BY rider
 ),
-tour_rider_come_from AS (
-    SELECT
-        riders.rider
-        , riders.tour
-    FROM riders
-    JOIN first_year_UTB ON first_year_UTB.rider = riders.rider
-    WHERE tour != 'unleash_the_best' AND year < min_year_in_UTB
-    GROUP BY riders.rider, riders.tour
+debutants AS (
+	SELECT rider
+		, first_utb_year
+	FROM first_year_utb
+	WHERE first_utb_year > 2020
+),
+last_tour_before_utb AS(
+	SELECT 
+		r.rider
+		, r.tour
+		, r.year
+		, d.first_utb_year
+		, ROW_NUMBER() OVER (PARTITION BY r.rider ORDER BY r.year DESC) AS rn
+	FROM riders r
+	LEFT JOIN debutants d ON r.rider = d.rider
+	WHERE r.tour != 'unleash_the_best' 
+		AND r.year < d.first_utb_year
 )
 SELECT 
-    tour
-    , COUNT(DISTINCT rider) AS riders_count
-FROM tour_rider_come_from
+	tour
+	, COUNT(DISTINCT rider) AS rider_count
+FROM last_tour_before_utb
+WHERE rn = 1
 GROUP BY tour
-ORDER BY riders_count DESC
+ORDER BY rider_count
     """), conn)
 
-print(df_tour_springboard)
-
-plt.style.use('dark_background')
-plt.figure(figsize=(10, 6))
 tour_labels = {
     'challenger_series': 'Challenger Series',
     'touring_pro_division': 'Touring Pro Division',
@@ -252,9 +259,15 @@ tour_labels = {
     'pbr_canada': 'PBR Canada',
     'pbr_australia': 'PBR Australia'
 }
+
 df_tour_springboard['tour'] = df_tour_springboard['tour'].map(tour_labels)
-colors = ['#D4A017' if t == 'Challenger Series' else '#990000' for t in df_tour_springboard['tour']]
-plt.barh(df_tour_springboard['tour'], df_tour_springboard['riders_count'], color=colors)
+df_tour_springboard.to_csv('data/tour_springboard.csv', index=False)
+print(df_tour_springboard)
+
+plt.style.use('dark_background')
+plt.figure(figsize=(10, 6))
+colors = ['#D4A017' if t == df_tour_springboard['tour'].iloc[-1] else '#990000' for t in df_tour_springboard['tour']]
+plt.barh(df_tour_springboard['tour'], df_tour_springboard['rider_count'], color=colors)
 plt.title('Where UTB Riders Come From')
 plt.xlabel('Number of Riders')
 plt.ylabel('Tour')
@@ -314,3 +327,12 @@ plt.ylabel('Stability score')
 plt.tight_layout()
 plt.savefig('visuals/stability.png', dpi=150, bbox_inches='tight')
 plt.show()
+df_stability.to_csv('data/stability.csv', index=False)
+print('stability.csv exported')
+
+#Експорт даних для Tableau
+with engine.connect() as conn:
+    df_tableau = pd.read_sql(text("SELECT * FROM riders"), conn)
+    df_tableau.columns = ['num', 'rider', 'points', 'avg_score', 'prize', 'outs', 'rides', 'ride_pct', 'tour', 'year']
+    df_tableau.to_csv('data/riders_for_tableau.csv', index=False)
+    print('Tableau CSV exported!')
