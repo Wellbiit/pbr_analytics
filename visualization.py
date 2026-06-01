@@ -165,7 +165,7 @@ ax2.set_ylabel('AVG score')
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig('visuals/tour_trends .png', dpi=150, bbox_inches='tight')
+plt.savefig('visuals/tour_trends.png', dpi=150, bbox_inches='tight')
 plt.show()
 
 
