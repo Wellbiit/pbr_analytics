@@ -1,6 +1,6 @@
-# 🤠 PBR Analytics — End-to-End Data Analytics Project
+# PBR Analytics — End-to-End Data Analytics Project
 
-## 📌 Research Question
+## Research Question
 **"What factors define success in PBR - stability, career path, or ride quality?"**
 
 ## 📊 Tableau Dashboard
@@ -122,6 +122,6 @@ Using **Coefficient of Variation (CV)** of ride% across years as a stability met
 
 ---
 
-## 👩‍💻 Author
+## Author
 **Anna Lutsenko**  
 [LinkedIn](https://www.linkedin.com/in/anna-lutsenko-1a3253405/) | [Tableau Public](https://public.tableau.com/app/profile/ann.lutsenko)
