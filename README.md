@@ -1,4 +1,4 @@
-# PBR Analytics — End-to-End Data Analytics Project
+# PBR Analytics - Data Analytics Project
 
 ## Research Question
 **"What factors define success in PBR - stability, career path, or ride quality?"**
