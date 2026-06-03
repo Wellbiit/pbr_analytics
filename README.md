@@ -13,23 +13,37 @@
 PBR_Analytics/
 │
 ├── data/
-│   ├── riders_2020-2026_pbr.csv       # Main dataset
-│   ├── years_to_utb.csv               # Years to reach UTB
-│   ├── tour_springboard.csv           # Last tour before UTB debut
-│   └── stability.csv                  # Rider stability metrics
+│   ├── cleaned/
+│   │   └── riders_2020-2026_clean.csv    # Cleaned dataset
+│   ├── raw/
+│   │   ├── 2020/                         # Raw scraped data by year
+│   │   ├── 2021/
+│   │   ├── 2022/
+│   │   ├── 2023/
+│   │   ├── 2024/
+│   │   ├── 2025/
+│   │   └── 2026/
+│   ├── riders_for_tableau.csv            # Full dataset for Tableau
+│   ├── stability.csv                     # Rider stability metrics
+│   ├── tour_springboard.csv              # Last tour before UTB debut
+│   └── years_to_utb.csv                  # Years to reach UTB
+│
+├── sql/
+│   └── sql.py                            # SQL queries and DB upload
 │
 ├── visuals/
-│   ├── top10_riders.png
-│   ├── top5_riders.png
-│   ├── tour_avg_ride%.png
 │   ├── prize_vs_score.png
-│   ├── tour_trends.png
-│   ├── years_to_utb.png
+│   ├── stability.png
+│   ├── top5_riders.png
+│   ├── top10_riders.png
+│   ├── tour_avg_ride%.png
 │   ├── tour_springboard.png
-│   └── stability.png
+│   ├── tour_trends.png
+│   └── years_to_utb.png
 │
-├── scraper.py                         # Web scraping from pbr.com
-├── visualization.py                   # Matplotlib charts + data export
+├── cleaning.py                           # Data cleaning and transformation
+├── scraping.py                           # Web scraping from pbr.com
+├── visualization.py                      # Matplotlib charts + CSV export
 └── README.md
 ```
 
@@ -47,7 +61,7 @@ PBR_Analytics/
 
 ## 📦 Data
 - **Source:** pbr.com (web scraping)
-- **Period:** 2020–2026
+- **Period:** 2020-2026
 - **Tours:** 7 (Touring Pro Division → Unleash The Best)
 - **Rows:** 11,068
 - **Columns:** rider, points, avg_score, prize_$, outs, rides, ride_%, tour, year
@@ -59,7 +73,7 @@ PBR_Analytics/
 
 ## 🔍 Analysis & Key Insights
 
-### 1. Top Riders (2020–2026)
+### 1. Top Riders (2020-2026)
 Brady Fielder leads with 5,572 total points, followed by Nick Tetz (5,323) and Dakota Buttar (5,288). The top performers consistently competed across multiple tours and years.
 
 ![Top 10 Riders](visuals/top10_riders.png)
@@ -80,7 +94,7 @@ To identify the true springboard to the elite Unleash The Best tour, I analyzed 
 
 **Key insight:** TPD remains the primary feeder to UTB. However, the Challenger Series (launched 2022) reached nearly the same numbers in just 4 years, showing its growing importance as an elite pipeline.
 
-**50% of riders reach UTB within just 1 year** of joining PBR.
+**50% of riders reach UTB within just 1 year** of joining PBR (based on 2020-2026 data; riders who debuted in UTB before 2020 are not captured in this analysis).
 
 ![Springboard](visuals/tour_springboard.png)
 ![Years to UTB](visuals/years_to_utb.png)
@@ -88,37 +102,54 @@ To identify the true springboard to the elite Unleash The Best tour, I analyzed 
 ---
 
 ### 3. Ride Quality vs. Prize Money
-UTB accounts for the majority of total prize money ($37M over 2020-2026), while Touring Pro Division distributes significantly less (~$3.4M). This suggests that **reaching a higher tour level has a greater impact on earnings than individual ride quality** - the tour you compete in determines your prize ceiling more than your personal performance metrics.
+The scatter plot shows Prize Money vs Average Score per rider (2020-2026). Riders with avg score below 75 earn near-zero prize money regardless of other factors. Above 75, earnings grow but with high variance, suggesting that **ride quality is a necessary but not sufficient condition for high earnings**. Tour level acts as a multiplier: the same ride quality yields dramatically different prize money depending on which  our the rider competes in.
 
 ![Prize vs Score](visuals/prize_vs_score.png)
 
 ---
 
 ### 4. Tour Trends
-PBR Brazil consistently shows the highest average Ride% (~33%), while Touring Pro Division has the lowest (~14%). UTB average ride% has been growing since 2023, suggesting increasing overall competition quality.
 
-A notable peak in total points across all riders occurred in **2025**, potentially linked to the recovery of the full event calendar after COVID-19 disruptions in 2020–2022.
+PBR Brazil consistently shows the highest average Ride% among all tours (41-52%), while Touring Pro Division has the lowest (18-24%). Note that Ride% includes all participants. Riders with zero successful rides are counted, which reflects the real difficulty level of each tour.
+
+UTB ride% ranges 28-38% with a growing trend since 2022, suggesting increasing competition quality at the elite level.
+
+AVG scores show a clear hierarchy:
+- **UTB**: 54-72 (elite level)
+- **PBR Brazil**: 50-63
+- **PBR Canada**: 43-59
+- **Challenger Series**: 38-42 *(launched 2022)*
+- **Touring Pro Division**: 25-32 (entry level)
 
 ![Tour Trends](visuals/tour_trends.png)
 
 ---
 
 ### 5. Rider Stability
-Using **Coefficient of Variation (CV)** of ride% across years as a stability metric:
+To measure stability, I calculated the **Coefficient of Variation (CV)** of each rider's ride% across seasons:
 
-- **John Crimber** is the most stable active rider (CV = 2.58%, stability score = 97.05)
-- Riders with both high average ride% AND high stability cluster in the top-right of the scatter plot
-- Stability + ride quality together predict elite performance better than either metric alone
+**Method:**
+1. Calculate average ride% per rider per year
+2. Compute STDDEV and AVG of those yearly values
+3. CV = STDDEV / AVG × 100 - lower CV means more consistent year-to-year performance
+4. Stability Score = 100 - CV (easier to read: higher = more stable)
+
+**Filters applied:** ≥4 seasons, avg ride% ≥20%, ≥50 total rides *(to ensure statistically meaningful results)*
+
+**Key findings:**
+- **John Crimber** - most stable active rider (CV = 2.58%, stability score = 97.05)
+- No strong correlation between avg ride% and stability: a rider can have high ride% but be inconsistent year-to-year
+- The top-right of the scatter plot (high avg ride% + high stability score) represents the most well-rounded elite performers
 
 ![Stability](visuals/stability.png)
 
 ---
 
 ## 💡 Conclusions
-1. **Career path matters** - TPD and Challenger Series are the main gateways to UTB
-2. **Stability predicts success** - consistent performers outperform high-variance riders
-3. **Tour level > ride quality** for prize earnings (correlation = 0.24)
-4. **Speed of progression** - 50% of UTB riders got there within 1 year
+1. **Career path matters** - Touring Pro Division (56 riders) and Challenger Series (49 riders) are the main gateways to UTB
+2. **Stability predicts success** - consistent performers (low CV) tend to have higher avg ride% over their career
+3. **Tour level determines earnings** - UTB distributes ~$37M over 2020-2026 vs ~$3.4M in TPD; reaching a higher tour level has greater impact on prize money than individual ride quality
+4. **Speed of progression** - 50% of UTB riders got there within 1 year *(based on 2020–2026 data)*
 
 ---
 
